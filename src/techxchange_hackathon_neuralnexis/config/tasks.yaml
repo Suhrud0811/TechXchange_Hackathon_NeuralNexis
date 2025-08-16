@@ -15,3 +15,16 @@ reporting_task:
     A fully fledged report with the main topics, each with a full section of information.
     Formatted as markdown without '```'
   agent: reporting_analyst
+
+web_research_task:
+  description: >
+    Conduct real-time web research on {topic} to find the most current and relevant information.
+    Search for recent news, developments, and insights about {topic} from credible sources.
+    Focus on information from the current year ({current_year}) and recent developments.
+  expected_output: >
+    A comprehensive list of 10-15 key findings from web research, including:
+    - Recent developments and news
+    - Current trends and insights
+    - Credible sources and references
+    - URLs for further reading
+  agent: web_researcher

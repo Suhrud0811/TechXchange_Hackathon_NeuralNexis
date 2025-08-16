@@ -1,10 +1,13 @@
-from crewai import Agent, Crew, Process, Task
+from crewai import Agent, Crew, Process, Task, LLM
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from typing import List
-# If you want to run a snippet of code before or after the crew starts,
-# you can use the @before_kickoff and @after_kickoff decorators
-# https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
+from techxchange_hackathon_neuralnexis.tools.serpapi_tool import SerpAPISearchTool
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 @CrewBase
 class TechxchangeHackathonNeuralnexis():
@@ -12,6 +15,33 @@ class TechxchangeHackathonNeuralnexis():
 
     agents: List[BaseAgent]
     tasks: List[Task]
+
+    def _get_watson_llm(self) -> LLM:
+        """Configure and return IBM Watson LLM"""
+        api_key = os.getenv("WATSONX_APIKEY")
+        project_id = os.getenv("WATSONX_PROJECT_ID")
+        model = os.getenv("MODEL", "watsonx/meta-llama/llama-3-2-1b-instruct")
+        url = os.getenv("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+        
+        if not api_key or not project_id:
+            raise ValueError("WATSONX_APIKEY and WATSONX_PROJECT_ID are required")
+        
+        # Configure Watson LLM
+        watson_llm = LLM(
+            model=model,
+            config={
+                "api_key": api_key,
+                "project_id": project_id,
+                "url": url,
+                "temperature": 0.7,
+                "max_tokens": 512,
+                "top_p": 0.9,
+                "top_k": 50,
+                "repetition_penalty": 1.1
+            }
+        )
+        
+        return watson_llm
 
     # Learn more about YAML configuration files here:
     # Agents: https://docs.crewai.com/concepts/agents#yaml-configuration-recommended
@@ -23,6 +53,7 @@ class TechxchangeHackathonNeuralnexis():
     def researcher(self) -> Agent:
         return Agent(
             config=self.agents_config['researcher'], # type: ignore[index]
+            llm=self._get_watson_llm(),
             verbose=True
         )
 
@@ -30,6 +61,16 @@ class TechxchangeHackathonNeuralnexis():
     def reporting_analyst(self) -> Agent:
         return Agent(
             config=self.agents_config['reporting_analyst'], # type: ignore[index]
+            llm=self._get_watson_llm(),
+            verbose=True
+        )
+
+    @agent
+    def web_researcher(self) -> Agent:
+        return Agent(
+            config=self.agents_config['web_researcher'], # type: ignore[index]
+            llm=self._get_watson_llm(),
+            tools=[SerpAPISearchTool()],
             verbose=True
         )
 
@@ -47,6 +88,13 @@ class TechxchangeHackathonNeuralnexis():
         return Task(
             config=self.tasks_config['reporting_task'], # type: ignore[index]
             output_file='report.md'
+        )
+
+    @task
+    def web_research_task(self) -> Task:
+        return Task(
+            config=self.tasks_config['web_research_task'], # type: ignore[index]
+            output_file='web_research_results.md'
         )
 
     @crew
