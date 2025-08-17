@@ -1,30 +1,65 @@
-research_task:
-  description: >
-    Conduct a thorough research about {topic}
-    Make sure you find any interesting and relevant information given
-    the current year is {current_year}.
-  expected_output: >
-    A list with 10 bullet points of the most relevant information about {topic}
-  agent: researcher
+tasks:
+  plan_goal:
+    description: >
+      Break the user's goal into <=7 outcome-based tasks with dependencies and assumptions.
+    agent: GoalPlannerAgent
+    inputs:
+      goal: "${GOAL}"
+    expected_output: >
+      JSON per GoalPlannerAgent schema with tasks[] and assumptions.
 
-reporting_task:
-  description: >
-    Review the context you got and expand each topic into a full section for a report.
-    Make sure the report is detailed and contains any and all relevant information.
-  expected_output: >
-    A fully fledged report with the main topics, each with a full section of information.
-    Formatted as markdown without '```'
-  agent: reporting_analyst
+  estimate_time:
+    description: >
+      For each task, estimate time_hours (0.25h granularity). Prefer smaller chunks.
+    agent: TimeAnalyzerAgent
+    inputs_from: >
+      plan_goal.tasks
+    expected_output: >
+      "JSON with tasks[name, time_hours]."
 
-web_research_task:
-  description: >
-    Conduct real-time web research on {topic} to find the most current and relevant information.
-    Search for recent news, developments, and insights about {topic} from credible sources.
-    Focus on information from the current year ({current_year}) and recent developments.
-  expected_output: >
-    A comprehensive list of 10-15 key findings from web research, including:
-    - Recent developments and news
-    - Current trends and insights
-    - Credible sources and references
-    - URLs for further reading
-  agent: web_researcher
+  assign_impact:
+    description: >
+      Assign impact_pct so that total ≈ 100 and include a one-line rationale per task.
+    agent: ImpactAgent
+    inputs_from: >
+      plan_goal.tasks
+    expected_output: >
+      "JSON with tasks[name, impact_pct, why]."
+
+  prioritize:
+    description: >
+      Merge time_hours and impact_pct; compute priority_score = impact_pct / max(time_hours,0.25).
+      Sort tasks by priority_score desc; ensure dependencies appear earlier.
+    agent: PrioritizerAgent
+    inputs_from: >
+      plan_goal.tasks
+      estimate_time.tasks
+      assign_impact.tasks
+    expected_output: >
+      "JSON with tasks[name, time_hours, impact_pct, priority_score, dependencies]."
+
+  schedule:
+    description: >
+      Build a day-by-day schedule from the prioritized tasks, respecting daily capacity and buffer.
+    agent: SchedulerAgent
+    inputs_from: >
+      prioritize.tasks
+    params: >
+      start_date: "${START_DATE}"
+      daily_capacity_hours: "${DAILY_CAPACITY_HOURS:-4}"
+      buffer_pct: "${BUFFER_PCT:-15}"
+    expected_output: >
+      "JSON timeline with schedule[], plus optional warnings[] when capacity is exceeded."
+
+  monitor:
+    description: >
+      Create reminders for today's top items and suggest adjustments if any warnings were produced.
+    agent: MonitorAgent
+    inputs_from: >
+      schedule.timeline
+      prioritize.tasks
+    params: >
+      first_reminder_time: "${FIRST_REMINDER_TIME:-09:00}"
+    expected_output: "JSON reminders[] and adjustments[] (if needed)."
+
+

@@ -1,20 +1,14 @@
+# src/latest_ai_development/crew.py
 from crewai import Agent, Crew, Process, Task, LLM
-from crewai.project import CrewBase, agent, crew, task
-from crewai.agents.agent_builder.base_agent import BaseAgent
-from typing import List
-from techxchange_hackathon_neuralnexis.tools.serpapi_tool import SerpAPISearchTool
+from crewai_tools import SerperDevTool
 import os
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-@CrewBase
-class TechxchangeHackathonNeuralnexis():
-    """TechxchangeHackathonNeuralnexis crew"""
-
-    agents: List[BaseAgent]
-    tasks: List[Task]
+class LatestAiDevelopmentCrew():
+    """LatestAiDevelopment crew"""
 
     def _get_watson_llm(self) -> LLM:
         """Configure and return IBM Watson LLM"""
@@ -43,70 +37,51 @@ class TechxchangeHackathonNeuralnexis():
         
         return watson_llm
 
-    # Learn more about YAML configuration files here:
-    # Agents: https://docs.crewai.com/concepts/agents#yaml-configuration-recommended
-    # Tasks: https://docs.crewai.com/concepts/tasks#yaml-configuration-recommended
-    
-    # If you would like to add tools to your agents, you can learn more about it here:
-    # https://docs.crewai.com/concepts/agents#agent-tools
-    @agent
-    def researcher(self) -> Agent:
-        return Agent(
-            config=self.agents_config['researcher'], # type: ignore[index]
+    def create_agents(self, topic: str):
+        """Create agents with the given topic"""
+        researcher = Agent(
+            role=f"{topic} Senior Data Researcher",
+            goal=f"Uncover cutting-edge developments in {topic}",
+            backstory=f"You're a seasoned researcher with a knack for uncovering the latest developments in {topic}. Known for your ability to find the most relevant information and present it in a clear and concise manner.",
+            llm=self._get_watson_llm(),
+            verbose=True,
+            tools=[SerperDevTool()]
+        )
+        
+        reporting_analyst = Agent(
+            role=f"{topic} Reporting Analyst",
+            goal=f"Create detailed reports based on {topic} data analysis and research findings",
+            backstory=f"You're a meticulous analyst with a keen eye for detail. You're known for your ability to turn complex data into clear and concise reports, making it easy for others to understand and act on the information you provide.",
             llm=self._get_watson_llm(),
             verbose=True
         )
+        
+        return researcher, reporting_analyst
 
-    @agent
-    def reporting_analyst(self) -> Agent:
-        return Agent(
-            config=self.agents_config['reporting_analyst'], # type: ignore[index]
-            llm=self._get_watson_llm(),
-            verbose=True
+    def create_tasks(self, researcher: Agent, reporting_analyst: Agent, topic: str, current_year: str):
+        """Create tasks with the given agents and parameters"""
+        research_task = Task(
+            description=f"Conduct a thorough research about {topic}. Make sure you find any interesting and relevant information given the current year is {current_year}.",
+            expected_output=f"A list with 10 bullet points of the most relevant information about {topic}",
+            agent=researcher
         )
-
-    @agent
-    def web_researcher(self) -> Agent:
-        return Agent(
-            config=self.agents_config['web_researcher'], # type: ignore[index]
-            llm=self._get_watson_llm(),
-            tools=[SerpAPISearchTool()],
-            verbose=True
+        
+        reporting_task = Task(
+            description="Review the context you got and expand each topic into a full section for a report. Make sure the report is detailed and contains any and all relevant information.",
+            expected_output="A fully fledged report with the main topics, each with a full section of information. Formatted as markdown without '```'",
+            agent=reporting_analyst
         )
+        
+        return research_task, reporting_task
 
-    # To learn more about structured task outputs,
-    # task dependencies, and task callbacks, check out the documentation:
-    # https://docs.crewai.com/concepts/tasks#overview-of-a-task
-    @task
-    def research_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['research_task'], # type: ignore[index]
-        )
-
-    @task
-    def reporting_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['reporting_task'], # type: ignore[index]
-            output_file='report.md'
-        )
-
-    @task
-    def web_research_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['web_research_task'], # type: ignore[index]
-            output_file='web_research_results.md'
-        )
-
-    @crew
-    def crew(self) -> Crew:
-        """Creates the TechxchangeHackathonNeuralnexis crew"""
-        # To learn how to add knowledge sources to your crew, check out the documentation:
-        # https://docs.crewai.com/concepts/knowledge#what-is-knowledge
-
+    def crew(self, topic: str, current_year: str) -> Crew:
+        """Creates and returns the LatestAiDevelopment crew"""
+        researcher, reporting_analyst = self.create_agents(topic)
+        research_task, reporting_task = self.create_tasks(researcher, reporting_analyst, topic, current_year)
+        
         return Crew(
-            agents=self.agents, # Automatically created by the @agent decorator
-            tasks=self.tasks, # Automatically created by the @task decorator
+            agents=[researcher, reporting_analyst],
+            tasks=[research_task, reporting_task],
             process=Process.sequential,
             verbose=True,
-            # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )
