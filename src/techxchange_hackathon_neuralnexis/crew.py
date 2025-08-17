@@ -37,13 +37,21 @@ class TechxchangeHackathonNeuralnexis():
         return Agent(
             config=self.agents_config['researcher'], # type: ignore[index]
             verbose=True,
-            llm=self.watson_llm
+            llm=self.watson_llm,            
         )
 
     @agent
     def reporting_analyst(self) -> Agent:
         return Agent(
             config=self.agents_config['reporting_analyst'], # type: ignore[index]
+            verbose=True,
+            llm=self.watson_llm
+        )
+
+    @agent
+    def schedular(self) -> Agent:
+        return Agent(
+            config=self.agents_config['schedular'], # type: ignore[index]
             verbose=True,
             llm=self.watson_llm
         )
@@ -64,6 +72,12 @@ class TechxchangeHackathonNeuralnexis():
             output_file='report.md'
         )
 
+    @task
+    def reporting_task(self) -> Task:
+        return Task(
+            config=self.tasks_config['reporting_task'], # type: ignore[index]
+            output_file='report.md'
+        )
     @crew
     def crew(self) -> Crew:
         """Creates the TechxchangeHackathonNeuralnexis crew"""
