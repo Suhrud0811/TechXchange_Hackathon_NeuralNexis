@@ -1,64 +1,60 @@
-tasks:
-  - id: plan_goal
-    description: |
-      Break the user's goal into <=7 outcome-based tasks with dependencies and assumptions.
-    agent: GoalPlannerAgent
-    inputs:
-      goal: "${GOAL}"
-    expected_output: "JSON per GoalPlannerAgent schema with tasks[] and assumptions."
+plan_goal_task:
+  description: >
+    Break the user's goal of '{goal}' into 7 or fewer actionable tasks.
+    Your final output must be a single JSON object with a 'tasks' key 
+    holding the list of task objects you create.
+  expected_output: >
+    A JSON object containing a 'tasks' list and an 'assumptions' list.
+  agent: GoalPlannerAgent
 
-  - id: estimate_time
-    description: |
-      For each task, estimate time_hours (0.25h granularity). Prefer smaller chunks.
-    agent: TimeAnalyzerAgent
-    inputs_from:
-      - plan_goal.tasks
-    expected_output: "JSON with tasks[name, time_hours]."
+estimate_time_task:
+  description: >
+    You will receive a JSON object from the planning step. Add a 'time_hours' key 
+    (using 0.25-hour granularity) to each task object within the 'tasks' list.
+  expected_output: >
+    The complete JSON object, now with 'time_hours' added to each task.
+  agent: TimeAnalyzerAgent
+  context:
+    - plan_goal_task
 
-  - id: assign_impact
-    description: |
-      Assign impact_pct so that total ≈ 100 and include a one-line rationale per task.
-    agent: ImpactAgent
-    inputs_from:
-      - plan_goal.tasks
-    expected_output: "JSON with tasks[name, impact_pct, why]."
+assign_impact_task:
+  description: >
+    You will receive a JSON object that already includes time estimates. Add an 'impact_pct' key 
+    and a 'rationale' key to each task object. The total impact should be approximately 100%.
+  expected_output: >
+    The complete JSON object, now with 'impact_pct' and 'rationale' added to each task.
+  agent: ImpactAgent
+  context:
+    - estimate_time_task
 
-  - id: prioritize
-    description: |
-      Merge time_hours and impact_pct; compute priority_score = impact_pct / max(time_hours,0.25).
-      Sort tasks by priority_score desc; ensure dependencies appear earlier.
-    agent: PrioritizerAgent
-    inputs_from:
-      - plan_goal.tasks
-      - estimate_time.tasks
-      - assign_impact.tasks
-    expected_output: "JSON with tasks[name, time_hours, impact_pct, priority_score, dependencies]."
+prioritize_task:
+  description: >
+    You will receive a fully enriched JSON object. First, add a 'priority_score' to each task 
+    using the formula: score = impact_pct / max(time_hours, 0.25). Second, sort the 'tasks' list 
+    by this score in descending order.
+  expected_output: >
+    The final, sorted list of tasks as a single JSON object.
+  agent: PrioritizerAgent
+  context:
+    - assign_impact_task
 
-  - id: schedule
-    description: |
-      Build a day-by-day schedule from the prioritized tasks, respecting daily capacity and buffer.
-    agent: SchedulerAgent
-    inputs_from:
-      - prioritize.tasks
-    params:
-      start_date: "${START_DATE}"
-      daily_capacity_hours: "${DAILY_CAPACITY_HOURS:-4}"
-      buffer_pct: "${BUFFER_PCT:-15}"
-    expected_output: "JSON timeline with schedule[], plus optional warnings[] when capacity is exceeded."
+schedule_task:
+  description: >
+    Build a day-by-day schedule from the prioritized tasks. You must respect the daily
+    capacity of {daily_capacity_hours} hours and add a {buffer_pct}% buffer to the time estimates.
+    The schedule starts on {start_date}.
+  expected_output: >
+    A JSON timeline with a 'schedule' list and an optional 'warnings' list if capacity is exceeded.
+  agent: SchedulerAgent
+  context:
+    - prioritize_task
 
-  - id: monitor
-    description: |
-      Create reminders for today's top items and suggest adjustments if any warnings were produced.
-    agent: MonitorAgent
-    inputs_from:
-      - schedule.timeline
-    params:
-      first_reminder_time: "${FIRST_REMINDER_TIME:-09:00}"
-    expected_output: "JSON reminders[] and adjustments[] (if needed)."
-
-flow:
-  - plan_goal -> estimate_time
-  - plan_goal -> assign_impact
-  - estimate_time, assign_impact -> prioritize
-  - prioritize -> schedule
-  - schedule -> monitor
+monitor_task:
+  description: >
+    Review the generated schedule. Create reminders for today's top items starting at {first_reminder_time}.
+    If the schedule produced any warnings, suggest specific adjustments.
+  expected_output: >
+    A JSON object with a 'reminders' list and an optional 'adjustments' list.
+  agent: MonitorAgent
+  context:
+    - schedule_task
