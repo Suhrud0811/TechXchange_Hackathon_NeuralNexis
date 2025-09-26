@@ -1,118 +1,220 @@
 #!/usr/bin/env python3
 """
-Example of using LangChain tools with CrewAI agents
+Comprehensive example of using various LangChain tools with CrewAI agents
 """
 
 from crewai import Agent, Crew, Process, Task, LLM
 from crewai_tools import SerperDevTool
-from langchain.tools import DuckDuckGoSearchRun, WikipediaQueryRun
-from langchain_community.utilities import WikipediaAPIWrapper
+from langchain.tools import (
+    DuckDuckGoSearchRun, 
+    WikipediaQueryRun,
+    YouTubeSearchTool
+)
+from langchain_community.utilities import (
+    WikipediaAPIWrapper
+)
+
 import os
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-class LangChainToolsCrew:
-    """Crew with LangChain tools integration"""
+class ComprehensiveLangChainCrew:
+    """Crew with comprehensive LangChain tools integration"""
 
-    def _get_watson_llm(self) -> LLM:
-        """Configure and return IBM Watson LLM"""
-        api_key = os.getenv("WATSONX_APIKEY")
-        project_id = os.getenv("WATSONX_PROJECT_ID")
-        model = os.getenv("MODEL", "watsonx/meta-llama/llama-3-2-1b-instruct")
-        url = os.getenv("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+    def _get_bedrock_llm(self) -> LLM:
+        """Configure and return AWS Bedrock LLM"""
+        model = os.getenv("BEDROCK_MODEL", "anthropic.claude-3-5-sonnet-20241022-v2:0")
+        region = os.getenv("AWS_REGION", "us-east-1")
         
-        if not api_key or not project_id:
-            raise ValueError("WATSONX_APIKEY and WATSONX_PROJECT_ID are required")
-        
-        watson_llm = LLM(
+        # Configure Bedrock LLM
+        bedrock_llm = LLM(
             model=model,
             config={
-                "api_key": api_key,
-                "project_id": project_id,
-                "url": url,
+                "region_name": region,
                 "temperature": 0.7,
                 "max_tokens": 512,
                 "top_p": 0.9,
                 "top_k": 50,
-                "repetition_penalty": 1.1
+                "stop_sequences": []
             }
         )
         
-        return watson_llm
+        return bedrock_llm
 
-    def create_agents_with_langchain_tools(self, topic: str):
-        """Create agents with LangChain tools"""
+    def create_reporting_agent(self, topic: str):
+        """Create a reporting agent for final synthesis"""
         
-        # Initialize LangChain tools
+        reporter = Agent(
+            role=f"{topic} Report Writer",
+            goal=f"Create comprehensive reports on {topic}",
+            backstory=f"You're a professional report writer specializing in {topic}. You synthesize research findings into clear, actionable reports.",
+            llm=self._get_bedrock_llm(),
+            verbose=True
+        )
+        
+        return reporter
+
+    def create_requirements_agent(self):
+        """Create a requirements agent for final synthesis"""
+        
+        requirements_agent = Agent(
+            role=f"Requirements Agent",
+            goal=f"Gather requirements from the user about the goals they want to achieve.",
+            backstory=f"You're a professional Therapist/Goal Planner. \
+                        You gather requirements from the user about the goals they want to achieve.",
+            llm=self._get_bedrock_llm(),
+            verbose=True
+        )
+        
+        return requirements_agent
+
+    def create_behaivor_analyzer_agent(self):
+        """Create a behavior analyzer agent for final synthesis"""
+        
+        behavior_analyzer_agent = Agent(
+            role=f"Behavior Analyzer Agent",
+            goal=f"Analyze the conversation this specific user and gauge if they have any mental health challenges or issues.",
+            backstory=f"You're a professional Therapist/Goal Planner. \
+                        You analyze the conversation this specific user has had with you \
+                        and gauge if they have any mental health challenges or issues.",
+            llm=self._get_bedrock_llm(),
+            verbose=True        
+            )
+        
+        return behavior_analyzer_agent
+
+    def create_research_agent(self):
+        """Create a research agent with multiple search tools"""
+        
+        # Initialize various LangChain tools
         search_tool = DuckDuckGoSearchRun()
         wikipedia_tool = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper())
+        youtube_tool = YouTubeSearchTool()
         
-        # Create researcher agent with LangChain tools
         researcher = Agent(
-            role=f"{topic} Senior Data Researcher",
-            goal=f"Uncover cutting-edge developments in {topic}",
-            backstory=f"You're a seasoned researcher with a knack for uncovering the latest developments in {topic}. Known for your ability to find the most relevant information and present it in a clear and concise manner.",
-            llm=self._get_watson_llm(),
+            role=f"Research Specialist",
+            goal=f"Conduct comprehensive research on the user's goals and requirements using multiple sources",
+            backstory=f"You use multiple research tools to gather comprehensive information from web searches, \
+                        Wikipedia, and video content to help the user achieve their goals and requirements with \
+                        their mental health challenges or issues.",
+            llm=self._get_bedrock_llm(),
             verbose=True,
-            tools=[search_tool, wikipedia_tool, SerperDevTool()]  # Multiple tools
+            tools=[search_tool, wikipedia_tool, youtube_tool, SerperDevTool()]
         )
         
-        # Create analyst agent
-        analyst = Agent(
-            role=f"{topic} Data Analyst",
-            goal=f"Analyze and synthesize {topic} research findings",
-            backstory=f"You're a meticulous analyst with expertise in {topic}. You excel at analyzing complex data and creating comprehensive reports.",
-            llm=self._get_watson_llm(),
-            verbose=True,
-            tools=[search_tool]  # Can use search for additional verification
-        )
-        
-        return researcher, analyst
+        return researcher
 
-    def create_tasks(self, researcher: Agent, analyst: Agent, topic: str, current_year: str):
-        """Create tasks for the crew"""
+    def create_task_analyzer_agent(self):
+        """Create a task analyzer agent for final synthesis"""
         
+        task_analyzer_agent = Agent(
+            role=f"Task Analyzer Agent",
+            goal=f"Analyze the requirements and create a list of tasks that need to be completed to achieve the goals.",
+            backstory=f"You're a professional Therapist/Goal Planner. \
+                        You analyze the requirements and create a list of tasks that need to be completed to achieve the goals.",
+            llm=self._get_bedrock_llm(),
+            verbose=True,  
+        )
+        
+        return task_analyzer_agent
+
+
+    def create_tasks(self, requirements_agent: Agent, behavior_analyzer: Agent, researcher: Agent, task_analyzer: Agent, reporter: Agent):
+        """Create comprehensive tasks with proper context flow between agents"""
+        
+        # Task 1: Gather requirements from user (no context - this is the starting point)
+        requirements_task = Task(
+            description="""
+            Gather requirements from the user about their goals and what they want to achieve.
+            Ask clarifying questions if needed to understand their specific needs and objectives.
+            """,
+            expected_output="A clear summary of the user's goals and requirements.",
+            agent=requirements_agent
+        )
+        
+        # Task 2: Analyze user behavior and mental health (uses output from requirements task)
+        behavior_analysis_task = Task(
+            description="""
+            Analyze the user's conversation and requirements to identify any potential mental health challenges or issues.
+            Use the requirements gathered to understand the user's context and needs.
+            """,
+            expected_output="An analysis of the user's mental health status and any challenges identified.",
+            agent=behavior_analyzer,
+            context=[requirements_task]  # This agent receives input from requirements_task
+        )
+        
+        # Task 3: Research solutions (uses output from both previous tasks)
         research_task = Task(
-            description=f"Conduct comprehensive research about {topic} using multiple sources. Use search tools to find the latest information from {current_year}. Focus on recent developments, trends, and breakthroughs.",
-            expected_output=f"A detailed research summary with 10 key findings about {topic}, including recent developments from {current_year}.",
-            agent=researcher
+            description="""
+            Conduct comprehensive research based on the user's requirements and mental health analysis.
+            Find relevant information, resources, and solutions that can help the user achieve their goals.
+            """,
+            expected_output="A comprehensive research report with relevant resources and solutions.",
+            agent=researcher,
+            context=[requirements_task, behavior_analysis_task]  # Uses output from both previous tasks
         )
         
-        analysis_task = Task(
-            description=f"Analyze the research findings about {topic}. Create a comprehensive report that includes market analysis, future trends, and potential applications. Use search tools to verify any claims or find additional supporting data.",
-            expected_output=f"A comprehensive analysis report about {topic} with market insights, trends, and future predictions.",
-            agent=analyst
+        # Task 4: Create task breakdown (uses output from all previous tasks)
+        task_analysis_task = Task(
+            description="""
+            Based on the requirements, behavior analysis, and research findings, create a detailed list of tasks
+            that need to be completed to help the user achieve their goals.
+            """,
+            expected_output="A prioritized list of tasks with clear steps to achieve the user's goals.",
+            agent=task_analyzer,
+            context=[requirements_task, behavior_analysis_task, research_task]  # Uses all previous outputs
         )
         
-        return research_task, analysis_task
+        # Task 5: Final report (uses output from all previous tasks)
+        reporting_task = Task(
+            description="""
+            Create a final comprehensive report that synthesizes all the information gathered:
+            1. User requirements and goals
+            2. Mental health analysis and considerations
+            3. Research findings and resources
+            4. Detailed action plan with tasks
+            5. Recommendations and next steps
+            """,
+            expected_output="A comprehensive report with all findings, analysis, and actionable recommendations.",
+            agent=reporter,
+            context=[requirements_task, behavior_analysis_task, research_task, task_analysis_task]  # Uses all outputs
+        )
+        
+        return requirements_task, behavior_analysis_task, research_task, task_analysis_task, reporting_task
 
-    def crew(self, topic: str, current_year: str = "2025") -> Crew:
-        """Create and return the crew with LangChain tools"""
-        researcher, analyst = self.create_agents_with_langchain_tools(topic)
-        research_task, analysis_task = self.create_tasks(researcher, analyst, topic, current_year)
+    def crew(self) -> Crew:
+        """Create and return the comprehensive crew"""
+        # Create all agents
+        requirements_agent = self.create_requirements_agent()
+        behavior_analyzer = self.create_behaivor_analyzer_agent()
+        researcher = self.create_research_agent()
+        task_analyzer = self.create_task_analyzer_agent()
+        reporter = self.create_reporting_agent("Mental Health Support")
+        
+        # Create tasks with proper context flow
+        requirements_task, behavior_analysis_task, research_task, task_analysis_task, reporting_task = self.create_tasks(
+            requirements_agent, behavior_analyzer, researcher, task_analyzer, reporter)
         
         return Crew(
-            agents=[researcher, analyst],
-            tasks=[research_task, analysis_task],
+            agents=[requirements_agent, behavior_analyzer, researcher, task_analyzer, reporter],
+            tasks=[requirements_task, behavior_analysis_task, research_task, task_analysis_task, reporting_task],
             process=Process.sequential,
-            verbose=True,
-        )
+            verbose=True,)
 
 def main():
-    """Example usage of LangChain tools with CrewAI"""
-    print("🚀 LangChain Tools with CrewAI Example")
+    """Example usage of comprehensive LangChain tools with CrewAI"""
+    print("🚀 Mental Health Support Crew with LangChain Tools")
     
     # Create crew instance
-    crew_instance = LangChainToolsCrew()
+    crew_instance = ComprehensiveLangChainCrew()
     
-    # Test with a topic
-    topic = "Artificial Intelligence Ethics"
-    crew = crew_instance.crew(topic, "2025")
+    # Create the crew
+    crew = crew_instance.crew()
     
     # Execute the crew
-    print(f"\n🧪 Testing with topic: {topic}")
+    print(f"\n🧪 Starting Mental Health Support Process...")
     result = crew.kickoff()
     
     print(f"\n✅ RESULT:")

@@ -1,5 +1,5 @@
 tasks:
-  plan_goal:
+  plan_goal: 
     description: >
       Break the user's goal into <=7 outcome-based tasks with dependencies and assumptions.
     agent: GoalPlannerAgent

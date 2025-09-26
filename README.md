@@ -20,7 +20,44 @@ crewai install
 ```
 ### Customizing
 
-**Add your `OPENAI_API_KEY` into the `.env` file**
+**Configure your AWS Bedrock credentials in the `.env` file**
+
+The project now uses AWS Bedrock instead of Watson LLM. You need to configure the following environment variables:
+
+```bash
+# AWS Bedrock Configuration
+AWS_REGION=us-east-1
+BEDROCK_MODEL=anthropic.claude-3-5-sonnet-20241022-v2:0
+
+# AWS Credentials (set via AWS CLI, IAM roles, or environment variables)
+# AWS_ACCESS_KEY_ID=your_access_key_here
+# AWS_SECRET_ACCESS_KEY=your_secret_key_here
+
+# Other required API keys
+SERPER_API_KEY=your_serper_api_key_here
+REDDIT_CLIENT_ID=your_reddit_client_id
+REDDIT_CLIENT_SECRET=your_reddit_client_secret
+REDDIT_USER_AGENT=your_user_agent
+
+# Email Configuration (for reminders)
+EMAIL_ADDRESS=your_email@gmail.com
+EMAIL_PASSWORD=your_app_password
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+```
+
+**Available Bedrock Models:**
+- `anthropic.claude-3-5-sonnet-20241022-v2:0` (default)
+- `anthropic.claude-3-haiku-20240307-v1:0`
+- `anthropic.claude-3-opus-20240229-v1:0`
+- `meta.llama-3-2-70b-instruct-v1:0`
+- `meta.llama-3-2-11b-instruct-v1:0`
+- `amazon.titan-text-express-v1`
+
+**Email Setup for Reminders:**
+1. For Gmail: Enable 2-factor authentication and create an App Password
+2. Use the App Password (not your regular password) in EMAIL_PASSWORD
+3. For other email providers, adjust SMTP_SERVER and SMTP_PORT accordingly
 
 - Modify `src/techxchange_hackathon_neuralnexis/config/agents.yaml` to define your agents
 - Modify `src/techxchange_hackathon_neuralnexis/config/tasks.yaml` to define your tasks

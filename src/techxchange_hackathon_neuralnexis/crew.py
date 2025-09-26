@@ -10,32 +10,25 @@ load_dotenv()
 class LatestAiDevelopmentCrew():
     """LatestAiDevelopment crew"""
 
-    def _get_watson_llm(self) -> LLM:
-        """Configure and return IBM Watson LLM"""
-        api_key = os.getenv("WATSONX_APIKEY")
-        project_id = os.getenv("WATSONX_PROJECT_ID")
-        model = os.getenv("MODEL", "watsonx/meta-llama/llama-3-2-1b-instruct")
-        url = os.getenv("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+    def _get_bedrock_llm(self) -> LLM:
+        """Configure and return AWS Bedrock LLM"""
+        model = os.getenv("BEDROCK_MODEL", "anthropic.claude-3-5-sonnet-20241022-v2:0")
+        region = os.getenv("AWS_REGION", "us-east-1")
         
-        if not api_key or not project_id:
-            raise ValueError("WATSONX_APIKEY and WATSONX_PROJECT_ID are required")
-        
-        # Configure Watson LLM
-        watson_llm = LLM(
+        # Configure Bedrock LLM
+        bedrock_llm = LLM(
             model=model,
             config={
-                "api_key": api_key,
-                "project_id": project_id,
-                "url": url,
+                "region_name": region,
                 "temperature": 0.7,
                 "max_tokens": 512,
                 "top_p": 0.9,
                 "top_k": 50,
-                "repetition_penalty": 1.1
+                "stop_sequences": []
             }
         )
         
-        return watson_llm
+        return bedrock_llm
 
     def create_agents(self, topic: str):
         """Create agents with the given topic"""
@@ -43,7 +36,7 @@ class LatestAiDevelopmentCrew():
             role=f"{topic} Senior Data Researcher",
             goal=f"Uncover cutting-edge developments in {topic}",
             backstory=f"You're a seasoned researcher with a knack for uncovering the latest developments in {topic}. Known for your ability to find the most relevant information and present it in a clear and concise manner.",
-            llm=self._get_watson_llm(),
+            llm=self._get_bedrock_llm(),
             verbose=True,
             tools=[SerperDevTool()]
         )
@@ -52,7 +45,7 @@ class LatestAiDevelopmentCrew():
             role=f"{topic} Reporting Analyst",
             goal=f"Create detailed reports based on {topic} data analysis and research findings",
             backstory=f"You're a meticulous analyst with a keen eye for detail. You're known for your ability to turn complex data into clear and concise reports, making it easy for others to understand and act on the information you provide.",
-            llm=self._get_watson_llm(),
+            llm=self._get_bedrock_llm(),
             verbose=True
         )
         

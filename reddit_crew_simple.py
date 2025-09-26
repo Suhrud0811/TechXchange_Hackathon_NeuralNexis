@@ -15,31 +15,25 @@ load_dotenv()
 class SimpleRedditCrew:
     """Simplified crew for analyzing Reddit content"""
 
-    def _get_watson_llm(self) -> LLM:
-        """Configure and return IBM Watson LLM"""
-        api_key = os.getenv("WATSONX_APIKEY")
-        project_id = os.getenv("WATSONX_PROJECT_ID")
-        model = os.getenv("MODEL", "watsonx/meta-llama/llama-3-2-1b-instruct")
-        url = os.getenv("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
+    def _get_bedrock_llm(self) -> LLM:
+        """Configure and return AWS Bedrock LLM"""
+        model = os.getenv("BEDROCK_MODEL", "anthropic.claude-3-5-sonnet-20241022-v2:0")
+        region = os.getenv("AWS_REGION", "us-east-1")
         
-        if not api_key or not project_id:
-            raise ValueError("WATSONX_APIKEY and WATSONX_PROJECT_ID are required")
-        
-        watson_llm = LLM(
+        # Configure Bedrock LLM
+        bedrock_llm = LLM(
             model=model,
             config={
-                "api_key": api_key,
-                "project_id": project_id,
-                "url": url,
+                "region_name": region,
                 "temperature": 0.7,
                 "max_tokens": 512,
                 "top_p": 0.9,
                 "top_k": 50,
-                "repetition_penalty": 1.1
+                "stop_sequences": []
             }
         )
         
-        return watson_llm
+        return bedrock_llm
 
     def create_agents(self, topic: str):
         """Create agents with Reddit tool"""
@@ -49,7 +43,7 @@ class SimpleRedditCrew:
             role=f"{topic} Reddit Research Specialist",
             goal=f"Analyze Reddit discussions and trends related to {topic}",
             backstory=f"You're a social media research specialist who excels at analyzing Reddit discussions about {topic}. You understand community sentiment, trending topics, and can identify key insights from user discussions.",
-            llm=self._get_watson_llm(),
+            llm=self._get_bedrock_llm(),
             verbose=True,
             tools=[SerperDevTool()]  # Use SerperDevTool for web search
         )
@@ -59,7 +53,7 @@ class SimpleRedditCrew:
             role=f"{topic} Social Media Report Writer",
             goal=f"Create comprehensive reports on {topic} based on research findings",
             backstory=f"You're a professional report writer who specializes in creating insights from social media analysis. You excel at synthesizing research data into actionable business intelligence reports.",
-            llm=self._get_watson_llm(),
+            llm=self._get_bedrock_llm(),
             verbose=True
         )
         
